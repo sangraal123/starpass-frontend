@@ -11,12 +11,75 @@ const App = () => {
   const [messageValue, setMessageValue] = useState("");
   /* すべてのpostsを保存する状態変数を定義 */
   const [allPosts, setAllPosts] = useState([]);
+  /* ユーザーがいいねしているかどうか保存する状態変数をすべてのpostsに対して定義 */
+  const [isLiked, setIsLiked] = useState([]);
 
   /* デプロイされたコントラクトのアドレスを保持する変数を作成 */
-  const contractAddress = "0x1bd2863C4dE9bF9359f744fa6553C3cCC044Be4d";
+  const contractAddress = "0x31c18CB7F24C590fB1E12c4132eF1D83e8a4C498";
   /* コントラクトからすべてのwavesを取得するメソッドを作成 */
   /* ABIの内容を参照する変数を作成 */
   const contractABI = abi.abi;
+
+  const unlike = async (id) => {
+    const { ethereum } = window;
+
+    try {
+      if (ethereum) {
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const SocialNetworkContract = new ethers.Contract(
+          contractAddress,
+          contractABI,
+          signer
+        );
+        
+        const postTxn = await SocialNetworkContract.unlike(id, {
+          gasLimit: 300000,
+        });
+        console.log("Mining...", postTxn.hash);
+        await postTxn.wait();
+        console.log("Mined -- ", postTxn.hash);
+        const isLiked = await SocialNetworkContract.getLikedStates(currentAccount);
+        setIsLiked(isLiked);
+
+      } else {
+        console.log("Ethereum object doesn't exist!");
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const like = async (id) => {
+    const { ethereum } = window;
+
+    try {
+      if (ethereum) {
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const SocialNetworkContract = new ethers.Contract(
+          contractAddress,
+          contractABI,
+          signer
+        );
+        
+        
+        const postTxn = await SocialNetworkContract.like(id, {
+          gasLimit: 300000,
+        });
+        console.log("Mining...", postTxn.hash);
+        await postTxn.wait();
+        console.log("Mined -- ", postTxn.hash);
+        const isLiked = await SocialNetworkContract.getLikedStates(currentAccount);
+        setIsLiked(isLiked);
+
+      } else {
+        console.log("Ethereum object doesn't exist!");
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
   
   const getAllPosts = async () => {
     const { ethereum } = window;
@@ -36,20 +99,24 @@ const App = () => {
         const lastId = await SocialNetworkContract.getLastPostId();
         for (let i = 1; i <= lastId; i++) {
           let post = await SocialNetworkContract.getPost(i);
+          let likes = await SocialNetworkContract.getTotalLikesbyPost(i);
           let postObject = {
             poster: post.poster, 
             message: post.message,
             time: new Date(post.time * 1000),
-            totalLikes: post.totalLikes,
-            id: i
+            id: i,
+            likes: likes
           };
-          posts["id"] = i;
           posts.push(postObject);
-          console.log(postObject.poster, postObject.message, postObject.time, postObject.totalLikes, postObject.id);
+          console.log(postObject.poster, postObject.message, postObject.time, postObject.id);
         }
-
+        console.log("Current Account:", currentAccount);
+        const isLiked = await SocialNetworkContract.getLikedStates(await ethers.utils.getAddress(currentAccount));
+        console.log("LikedStates", isLiked);
         /* React Stateにデータを格納する */
         setAllPosts(posts);
+        setIsLiked(isLiked);
+
       } else {
         console.log("Ethereum object doesn't exist!");
       }
@@ -88,22 +155,27 @@ const App = () => {
   /*
    `emit`されたイベントをフロントエンドに反映させる
    */
+  
   useEffect(() => {
+
+    checkIfWalletIsConnected();
+
     let SocialNetworkContract;
 
-    const onNewPost = (poster, message, timestamp, likes, id) => {
-      console.log("NewPost", poster, message, timestamp, likes, id);
-      setAllPosts((prevState) => [
-        ...prevState,
-        {
-          poster: poster,
-          message: message,
-          time: new Date(timestamp * 1000),
-          totalLikes: likes,
-          id: id,
-        },
-      ]);
+    const onNewPost = () => {
+      console.log("NewPost");
+      getAllPosts();
     };
+
+    const onNewLike = () => {
+      console.log("NewLike");
+      getAllPosts();
+    }
+
+    const onNewUnlike = () => {
+      console.log("NewUnlike");
+      getAllPosts();
+    }
 
     /* NewPostイベントがコントラクトから発信されたときに、情報をを受け取ります */
     if (window.ethereum) {
@@ -116,14 +188,19 @@ const App = () => {
         signer
       );
       SocialNetworkContract.on("NewPost", onNewPost);
+      SocialNetworkContract.on("NewLike", onNewLike);
+      SocialNetworkContract.on("NewUnlike", onNewUnlike);
     }
     /*メモリリークを防ぐために、NewPostのイベントを解除します*/
     return () => {
       if (SocialNetworkContract) {
         SocialNetworkContract.off("NewPost", onNewPost);
+        SocialNetworkContract.off("NewLike", onNewLike);
+        SocialNetworkContract.off("NewUnlike", onNewUnlike);
       }
     };
-  }, []);
+
+  }, [currentAccount]);
 
   /* window.ethereumにアクセスできることを確認する関数を実装 */
   const checkIfWalletIsConnected = async () => {
@@ -168,10 +245,6 @@ const App = () => {
     }
   };
 
-  useEffect(() => {
-    checkIfWalletIsConnected();
-  }, []);
-
   return (
     <div>
     <div className="hero is-info is-bold">
@@ -213,17 +286,26 @@ const App = () => {
      {  allPosts
             .slice(0)
             .reverse()
-            .map((post, index) => {
-              return (
-                <div key={index} className="box">
+            .map((post, index) => (
+              <div key={index} className="box is-flex">
+                <div className="container is-half">
                   <div>ID: {post.id.toString()}</div>
                   <div>Address: {post.poster}</div>
                   <div>Message: {post.message}</div>
                   <div>Time: {post.time.toUTCString()}</div>
-                  <div>Likes: {post.totalLikes.toString()}</div>
                 </div>
-              );
-            })}
+                {!isLiked[post.id - 1] &&
+                  (<div className="container is-half">
+                    <button className="button is-primary is-pulled-right" onClick={() => like(post.id)} >いいねする（{post.likes.toString()}）</button>
+                  </div>)
+                }
+                {isLiked[post.id - 1] &&
+                  (<div className="container is-half">
+                  <button className="button is-primary is-pulled-right" onClick={() => unlike(post.id)} >いいねを取り消す（{post.likes.toString()}）</button>
+                  </div>)
+                }
+              </div>
+            ))}
     </div>
   </div>
  </div>
