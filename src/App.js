@@ -13,11 +13,51 @@ const App = () => {
   const [allPosts, setAllPosts] = useState([]);
 
   /* デプロイされたコントラクトのアドレスを保持する変数を作成 */
-  const contractAddress = "0x3dFEB7a8A835a03e2b2f6EDBAEdcE0C11f494Ed7";
+  const contractAddress = "0x1bd2863C4dE9bF9359f744fa6553C3cCC044Be4d";
   /* コントラクトからすべてのwavesを取得するメソッドを作成 */
   /* ABIの内容を参照する変数を作成 */
   const contractABI = abi.abi;
   
+  const getAllPosts = async () => {
+    const { ethereum } = window;
+
+    try {
+      if (ethereum) {
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const SocialNetworkContract = new ethers.Contract(
+          contractAddress,
+          contractABI,
+          signer
+        );
+
+        const posts = [];
+        /* コントラクトからgetPostメソッドを再帰的に呼び出す */
+        const lastId = await SocialNetworkContract.getLastPostId();
+        for (let i = 1; i <= lastId; i++) {
+          let post = await SocialNetworkContract.getPost(i);
+          let postObject = {
+            poster: post.poster, 
+            message: post.message,
+            time: new Date(post.time * 1000),
+            totalLikes: post.totalLikes,
+            id: i
+          };
+          posts["id"] = i;
+          posts.push(postObject);
+          console.log(postObject.poster, postObject.message, postObject.time, postObject.totalLikes, postObject.id);
+        }
+
+        /* React Stateにデータを格納する */
+        setAllPosts(posts);
+      } else {
+        console.log("Ethereum object doesn't exist!");
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   const post = async () => {
     try {
       const { ethereum } = window;
@@ -58,8 +98,8 @@ const App = () => {
         {
           poster: poster,
           message: message,
-          timestamp: new Date(timestamp * 1000),
-          likes: likes,
+          time: new Date(timestamp * 1000),
+          totalLikes: likes,
           id: id,
         },
       ]);
@@ -101,6 +141,7 @@ const App = () => {
         const account = accounts[0];
         console.log("Found an authorized account:", account);
         setCurrentAccount(account);
+        getAllPosts();
       } else {
         console.log("No authorized account found");
       }
@@ -178,8 +219,8 @@ const App = () => {
                   <div>ID: {post.id.toString()}</div>
                   <div>Address: {post.poster}</div>
                   <div>Message: {post.message}</div>
-                  <div>Time: {post.timestamp.toString()}</div>
-                  <div>Likes: {post.likes.toString()}</div>
+                  <div>Time: {post.time.toUTCString()}</div>
+                  <div>Likes: {post.totalLikes.toString()}</div>
                 </div>
               );
             })}
