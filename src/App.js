@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import './App.css';
 import { ethers } from "ethers";
 /* ABIファイルを含むWavePortal.jsonファイルをインポートする*/
-import abi from "./SocialNetwork.json";
+import abi from "./utils/SocialNetwork.json";
 
 const App = () => {
   /* ユーザーのパブリックウォレットを保存するために使用する状態変数を定義 */
