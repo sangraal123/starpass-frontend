@@ -17,7 +17,7 @@ const App = () => {
   const [sortOption, setsortOption] = useState("time");
 
   /* デプロイされたコントラクトのアドレスを保持する変数を作成 */
-  const contractAddress = "0x31c18CB7F24C590fB1E12c4132eF1D83e8a4C498";
+  const contractAddress = "0xBe77817323CDB503E1d9ee1297f4d98C745168de";
   /* コントラクトからすべてのwavesを取得するメソッドを作成 */
   /* ABIの内容を参照する変数を作成 */
   const contractABI = abi.abi;
