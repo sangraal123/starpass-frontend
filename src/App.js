@@ -13,12 +13,22 @@ const App = () => {
   const [allPosts, setAllPosts] = useState([]);
   /* ユーザーがいいねしているかどうか保存する状態変数をすべてのpostsに対して定義 */
   const [isLiked, setIsLiked] = useState([]);
+  /* ソート基準を保存する状態変数を定義 */
+  const [sortOption, setsortOption] = useState("time");
 
   /* デプロイされたコントラクトのアドレスを保持する変数を作成 */
   const contractAddress = "0x31c18CB7F24C590fB1E12c4132eF1D83e8a4C498";
   /* コントラクトからすべてのwavesを取得するメソッドを作成 */
   /* ABIの内容を参照する変数を作成 */
   const contractABI = abi.abi;
+
+  const sortPostsByTime = async () => {
+    allPosts.sort((a,b) => a.time - b.time);
+  }
+
+  const sortPostsByLikes = async () => {
+    allPosts.sort((a,b) => a.likes - b.likes);
+  }
 
   const unlike = async (id) => {
     const { ethereum } = window;
@@ -127,6 +137,7 @@ const App = () => {
 
   const post = async () => {
     try {
+
       const { ethereum } = window;
 
       if (ethereum) {
@@ -143,6 +154,9 @@ const App = () => {
         });
         console.log("Mining...", postTxn.hash);
         await postTxn.wait();
+        let textarea = document.getElementById("textarea");
+        textarea.value = "";
+        setMessageValue("");
         console.log("Mined -- ", postTxn.hash);
       } else {
         console.log("Ethereum object doesn't exist!");
@@ -266,21 +280,49 @@ const App = () => {
      </div>
    </div>
    <div className="section">
-     <div className="container">
-       <h3 className="title is-3">投稿フォーム</h3>
+     <div className="container is-flex">
+      <div className="column is-half">
+       <h3 className="title">投稿フォーム</h3>
+      </div>
+       <div className="column is-half">
+       <div className="column is-2 is-pulled-right">
+       <button className="button is-primary is-pulled-right" onClick={post}  >
+            投稿する
+        </button>
+       <div className="column is-10"></div>
+      </div>
+      </div>
+      </div>
        <div className="column">
         <div className="field">
              <label className="label">メッセージ</label>
              <div className="control">
-               <textarea className="textarea" placeholder="メッセージを入力してください" onChange={(e) => setMessageValue(e.target.value)} value={messageValue} ></textarea>
+               <textarea id="textarea" className="textarea" placeholder="メッセージを入力してください" onChange={(e) => setMessageValue(e.target.value)} value={messageValue} ></textarea>
              </div>
         </div>   
-        <button className="button is-primary" onClick={post}  >
-            投稿する
-        </button>
        </div>
-     </div>
    </div>
+    <div className="container">
+    <div className="column is-2 is-pulled-right">
+    <select value={sortOption} className="select is-medium" onChange={(e) => {
+      const selectedOption = e.target.value;
+      if (selectedOption == "time") {
+        sortPostsByTime();
+        console.log("Sorted by Time");
+        setsortOption("time");
+      } else if (selectedOption == "likes"){
+        sortPostsByLikes();
+        console.log("Sorted by Likes");
+        setsortOption("likes");
+      }
+     }}
+     >
+      <option value="time">投稿順</option>
+      <option value="likes">いいね順</option>
+    </select>
+     </div>
+     <div className="column is-10"></div>
+     </div>
    <div className="section">
      <div className="container">
      {  allPosts
